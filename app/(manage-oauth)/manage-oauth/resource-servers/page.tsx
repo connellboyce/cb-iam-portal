@@ -5,7 +5,11 @@ import Button from "@/components/Button";
 import DataTable, { type Column } from "@/components/DataTable";
 import EmptyState from "@/components/EmptyState";
 import RowActions from "@/components/RowActions";
-import { type ResourceServer, resourceServers } from "@/lib/resource-servers";
+import { deleteResourceServerAction } from "@/lib/manage-oauth-actions";
+import {
+  listResourceServers,
+  type ResourceServer,
+} from "@/lib/resource-servers";
 
 const columns: Column<ResourceServer>[] = [
   {
@@ -34,7 +38,9 @@ const columns: Column<ResourceServer>[] = [
   },
 ];
 
-export default function ResourceServersPage() {
+export default async function ResourceServersPage() {
+  const resourceServers = await listResourceServers();
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -56,7 +62,8 @@ export default function ResourceServersPage() {
           actions={(server) => (
             <RowActions
               name={server.name}
-              settingsHref={`/manage-oauth/resource-servers/${server.id}`}
+              settingsHref={`/manage-oauth/resource-servers/${encodeURIComponent(server.id)}`}
+              onDelete={deleteResourceServerAction.bind(null, server.id)}
             />
           )}
         />

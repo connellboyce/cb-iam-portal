@@ -25,14 +25,21 @@ const variantStyles: Record<
 
 interface CalloutProps {
   variant?: CalloutVariant;
+  /** `alert` announces the callout as soon as it appears, e.g. for errors */
+  role?: "alert";
   children: ReactNode;
 }
 
-export default function Callout({ variant = "info", children }: CalloutProps) {
+export default function Callout({
+  variant = "info",
+  role,
+  children,
+}: CalloutProps) {
   const styles = variantStyles[variant];
 
   return (
     <div
+      role={role}
       className={`flex items-start gap-4 rounded-2xl px-5 py-4 ${styles.container}`}
     >
       <FontAwesomeIcon icon={styles.glyph} className={`mt-1 ${styles.icon}`} />

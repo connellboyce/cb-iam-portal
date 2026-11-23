@@ -5,12 +5,9 @@ import BackLink from "@/components/BackLink";
 import Badge from "@/components/Badge";
 import Button from "@/components/Button";
 import DetailList from "@/components/DetailList";
-import { clients, getClient, grantTypes } from "@/lib/clients";
-import { scopeGroups } from "@/lib/scopes";
-
-export function generateStaticParams() {
-  return clients.map((client) => ({ id: client.id }));
-}
+import { getClient } from "@/lib/clients";
+import { grantTypes } from "@/lib/grant-types";
+import { getScopeGroups } from "@/lib/scopes";
 
 function None() {
   return <span className="text-sm text-muted">None</span>;
@@ -20,7 +17,10 @@ export default async function ClientPage({
   params,
 }: PageProps<"/manage-oauth/clients/[id]">) {
   const { id } = await params;
-  const client = getClient(id);
+  const [client, scopeGroups] = await Promise.all([
+    getClient(id),
+    getScopeGroups(),
+  ]);
   if (!client) notFound();
 
   const grantLabels = grantTypes
@@ -34,25 +34,28 @@ export default async function ClientPage({
         .filter((value) => client.scopes.includes(value)),
     }))
     .filter((group) => group.scopes.length > 0);
+  // Scopes that are no longer in the catalog still need to be shown
+  const catalogued = scopeGroups.flatMap((group) =>
+    group.scopes.map((scope) => scope.value),
+  );
+  const uncatalogued = client.scopes.filter(
+    (scope) => !catalogued.includes(scope),
+  );
+  if (uncatalogued.length > 0) {
+    scopesByApplication.push({ application: "Other", scopes: uncatalogued });
+  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <div className="flex flex-col gap-2">
         <BackLink href="/manage-oauth/clients" destination="My Clients" />
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="text-3xl font-bold break-words">{client.name}</h1>
-            <span className="flex items-center gap-1.5 text-sm text-muted">
-              <span
-                aria-hidden="true"
-                className={`size-2 rounded-full ${
-                  client.active ? "bg-brand" : "bg-muted"
-                }`}
-              />
-              {client.active ? "Active" : "Inactive"}
-            </span>
-          </div>
-          <Button href={`/manage-oauth/clients/${client.id}/edit`}>
+          <h1 className="min-w-0 text-3xl font-bold break-words">
+            {client.name}
+          </h1>
+          <Button
+            href={`/manage-oauth/clients/${encodeURIComponent(client.clientId)}/edit`}
+          >
             <FontAwesomeIcon icon={faPen} className="text-sm" />
             Edit Client
           </Button>
@@ -69,7 +72,6 @@ export default async function ClientPage({
               </code>
             ),
           },
-          { label: "Description", value: client.description },
           { label: "Client Type", value: "Confidential" },
           {
             label: "Grants",
@@ -90,10 +92,12 @@ export default async function ClientPage({
             label: "Redirect URIs",
             value:
               client.redirectUris.length > 0 ? (
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col items-start gap-2">
                   {client.redirectUris.map((uri) => (
-                    <li key={uri} className="font-mono text-sm break-all">
-                      {uri}
+                    <li key={uri} className="max-w-full">
+                      <code className="inline-block max-w-full rounded-lg bg-foreground/5 px-2 py-1 text-sm break-all">
+                        {uri}
+                      </code>
                     </li>
                   ))}
                 </ul>

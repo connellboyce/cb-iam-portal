@@ -1,26 +1,35 @@
 "use client";
 
-import { type FormEvent, useId } from "react";
+import { type FormEvent, startTransition, useActionState, useId } from "react";
 import Button from "@/components/Button";
+import Callout from "@/components/Callout";
 import Fieldset from "@/components/Fieldset";
 import SegmentedControl from "@/components/SegmentedControl";
 import TextInput from "@/components/TextInput";
-import type { ResourceServerScope } from "@/lib/resource-servers";
+import { createScopeAction } from "@/lib/manage-oauth-actions";
 
 interface ScopeFormProps {
+  resourceServerId: string;
   resourceServerHref: string;
-  scope?: ResourceServerScope;
 }
 
+// Scopes can only be created and deleted; the API has no way to edit one
 export default function ScopeForm({
+  resourceServerId,
   resourceServerHref,
-  scope,
 }: ScopeFormProps) {
   const headingId = useId();
-  const editing = scope !== undefined;
+  const [state, create, pending] = useActionState(
+    createScopeAction.bind(null, resourceServerId),
+    {},
+  );
 
+  // Submitting through a transition rather than the form's `action` keeps
+  // the user's input when the server rejects it
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(() => create(formData));
   };
 
   return (
@@ -30,29 +39,17 @@ export default function ScopeForm({
       className="flex flex-col gap-10"
     >
       <h1 id={headingId} className="text-3xl font-bold">
-        {editing ? "Edit Scope" : "Create Scope"}
+        Create Scope
       </h1>
       <Fieldset legend="Details">
         <TextInput
           label="Scope Name"
           name="scope"
-          defaultValue={scope?.value}
-          readOnly={editing}
-          hint={editing ? "Scope names can't be changed." : undefined}
+          hint="Scope names can't be changed after they're created."
           placeholder="urn:cb:scope:app:resource#read"
           autoComplete="off"
           spellCheck={false}
-          className={`w-full bg-transparent font-mono text-lg outline-none placeholder:text-muted ${
-            editing ? "cursor-default text-muted" : ""
-          }`}
-          required
-        />
-        <TextInput
-          label="Display Message"
-          name="displayMessage"
-          defaultValue={scope?.displayMessage}
-          hint="Shown to users when an app asks for this scope."
-          autoComplete="off"
+          className="w-full bg-transparent font-mono text-lg outline-none placeholder:text-muted"
           required
         />
       </Fieldset>
@@ -67,9 +64,14 @@ export default function ScopeForm({
           disabled
         />
       </Fieldset>
+      {state.error && (
+        <Callout variant="warning" role="alert">
+          {state.error}
+        </Callout>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row-reverse sm:justify-start">
-        <Button type="submit" className="text-lg">
-          {editing ? "Save Changes" : "Create Scope"}
+        <Button type="submit" className="text-lg" disabled={pending}>
+          Create Scope
         </Button>
         <Button href={resourceServerHref} variant="text">
           Cancel

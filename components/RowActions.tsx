@@ -15,6 +15,7 @@ interface RowActionsProps {
   settingsHref?: string;
   editHref?: string;
   extraActions?: RowAction[];
+  onDelete?: () => Promise<{ error?: string }>;
 }
 
 export default function RowActions({
@@ -22,6 +23,7 @@ export default function RowActions({
   settingsHref,
   editHref,
   extraActions = [],
+  onDelete,
 }: RowActionsProps) {
   const actions: RowAction[] = [
     ...(settingsHref
@@ -48,6 +50,7 @@ export default function RowActions({
         label={`Delete ${name}`}
         icon={faTrash}
         question={`Are you sure you want to delete ${name}?`}
+        action={onDelete}
       />
     </>
   );

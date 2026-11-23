@@ -5,7 +5,9 @@ import Button from "@/components/Button";
 import DataTable, { type Column } from "@/components/DataTable";
 import EmptyState from "@/components/EmptyState";
 import RowActions from "@/components/RowActions";
-import { type Client, clients } from "@/lib/clients";
+import { type Client, listClients } from "@/lib/clients";
+import { grantTypes } from "@/lib/grant-types";
+import { deleteClientAction } from "@/lib/manage-oauth-actions";
 
 const columns: Column<Client>[] = [
   {
@@ -15,15 +17,6 @@ const columns: Column<Client>[] = [
         <span className="truncate font-medium">{client.name}</span>
         <span className="truncate font-mono text-xs text-muted md:hidden">
           {client.clientId}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted">
-          <span
-            aria-hidden="true"
-            className={`size-1.5 shrink-0 rounded-full ${
-              client.active ? "bg-brand" : "bg-muted"
-            }`}
-          />
-          {client.active ? "Active" : "Inactive"}
         </span>
       </div>
     ),
@@ -38,20 +31,25 @@ const columns: Column<Client>[] = [
     ),
   },
   {
-    header: "Description",
+    header: "Grants",
     className: "hidden w-2/5 lg:table-cell",
-    cell: (client) => (
-      <span
-        className="block truncate text-sm text-muted"
-        title={client.description}
-      >
-        {client.description}
-      </span>
-    ),
+    cell: (client) => {
+      const labels = grantTypes
+        .filter((grant) => client.grants.includes(grant.value))
+        .map((grant) => grant.label)
+        .join(", ");
+      return (
+        <span className="block truncate text-sm text-muted" title={labels}>
+          {labels}
+        </span>
+      );
+    },
   },
 ];
 
-export default function ClientsPage() {
+export default async function ClientsPage() {
+  const clients = await listClients();
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -69,11 +67,12 @@ export default function ClientsPage() {
           caption="My Clients"
           rows={clients}
           columns={columns}
-          rowKey={(client) => client.id}
+          rowKey={(client) => client.clientId}
           actions={(client) => (
             <RowActions
               name={client.name}
-              settingsHref={`/manage-oauth/clients/${client.id}`}
+              settingsHref={`/manage-oauth/clients/${encodeURIComponent(client.clientId)}`}
+              onDelete={deleteClientAction.bind(null, client.clientId)}
             />
           )}
         />

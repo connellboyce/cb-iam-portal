@@ -3,15 +3,7 @@ import BackLink from "@/components/BackLink";
 import DataTable, { type Column } from "@/components/DataTable";
 import EmptyState from "@/components/EmptyState";
 import { type Client, getScopeConsumers } from "@/lib/clients";
-import {
-  getResourceServer,
-  getScope,
-  scopeParams,
-} from "@/lib/resource-servers";
-
-export function generateStaticParams() {
-  return scopeParams();
-}
+import { getResourceServer, getScope } from "@/lib/resource-servers";
 
 const columns: Column<Client>[] = [
   {
@@ -21,15 +13,6 @@ const columns: Column<Client>[] = [
         <span className="truncate font-medium">{client.name}</span>
         <span className="truncate font-mono text-xs text-muted md:hidden">
           {client.clientId}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted">
-          <span
-            aria-hidden="true"
-            className={`size-1.5 shrink-0 rounded-full ${
-              client.active ? "bg-brand" : "bg-muted"
-            }`}
-          />
-          {client.active ? "Active" : "Inactive"}
         </span>
       </div>
     ),
@@ -49,16 +32,17 @@ export default async function ScopeConsumersPage({
   params,
 }: PageProps<"/manage-oauth/resource-servers/[id]/scopes/[scopeId]/consumers">) {
   const { id, scopeId } = await params;
-  const server = getResourceServer(id);
-  const scope = getScope(id, scopeId);
-  if (!server || !scope) notFound();
-  const consumers = getScopeConsumers(scope.value);
+  const server = await getResourceServer(id);
+  if (!server) notFound();
+  const scope = await getScope(server.id, scopeId);
+  if (!scope) notFound();
+  const consumers = await getScopeConsumers(scope.value);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <div className="flex flex-col gap-2">
         <BackLink
-          href={`/manage-oauth/resource-servers/${server.id}`}
+          href={`/manage-oauth/resource-servers/${encodeURIComponent(server.id)}`}
           destination={server.name}
         />
         <h1 className="text-3xl font-bold">Scope Consumers</h1>
@@ -71,17 +55,21 @@ export default async function ScopeConsumersPage({
         className="flex flex-col gap-4"
       >
         <h2 id="consumers-heading" className="px-1 text-2xl font-bold">
-          Clients ({consumers.length})
+          Your Clients ({consumers.length})
         </h2>
+        <p className="px-1 text-sm text-muted">
+          Only clients you own are listed. Clients owned by other developers may
+          also use this scope.
+        </p>
         {consumers.length > 0 ? (
           <DataTable
             caption="Clients with this scope"
             rows={consumers}
             columns={columns}
-            rowKey={(client) => client.id}
+            rowKey={(client) => client.clientId}
           />
         ) : (
-          <EmptyState>No clients have this scope yet.</EmptyState>
+          <EmptyState>None of your clients have this scope yet.</EmptyState>
         )}
       </section>
     </div>

@@ -8,6 +8,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useId, useRef, useState } from "react";
 import Button from "@/components/Button";
+import { logOut } from "@/lib/auth-actions";
 
 interface ProfileMenuProps {
   name: string;
@@ -85,10 +86,12 @@ export default function ProfileMenu({ name }: ProfileMenuProps) {
               <FontAwesomeIcon icon={faXmark} />
             </Button>
           </div>
-          <Button variant="subtle" className="mt-auto w-full">
-            <FontAwesomeIcon icon={faRightFromBracket} />
-            Log Out
-          </Button>
+          <form action={logOut} className="mt-auto">
+            <Button type="submit" variant="subtle" className="w-full">
+              <FontAwesomeIcon icon={faRightFromBracket} />
+              Log Out
+            </Button>
+          </form>
         </div>
       </dialog>
     </>

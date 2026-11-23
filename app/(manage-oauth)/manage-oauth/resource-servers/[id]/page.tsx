@@ -7,44 +7,23 @@ import DataTable, { type Column } from "@/components/DataTable";
 import DetailList from "@/components/DetailList";
 import EmptyState from "@/components/EmptyState";
 import RowActions from "@/components/RowActions";
+import { deleteScopeAction } from "@/lib/manage-oauth-actions";
 import {
   getResourceServer,
+  listScopes,
   type ResourceServerScope,
-  resourceServers,
 } from "@/lib/resource-servers";
-
-export function generateStaticParams() {
-  return resourceServers.map((server) => ({ id: server.id }));
-}
 
 const scopeColumns: Column<ResourceServerScope>[] = [
   {
     header: "Scope",
-    className: "md:w-1/2",
     cell: (scope) => (
-      <div className="flex min-w-0 flex-col items-start gap-1">
-        <code
-          title={scope.value}
-          className="inline-block max-w-full truncate rounded-lg bg-foreground/5 px-2 py-1 text-xs"
-        >
-          {scope.value}
-        </code>
-        <span className="max-w-full truncate px-2 text-xs text-muted md:hidden">
-          {scope.displayMessage}
-        </span>
-      </div>
-    ),
-  },
-  {
-    header: "Display Message",
-    className: "hidden md:table-cell",
-    cell: (scope) => (
-      <span
-        className="block truncate text-sm text-muted"
-        title={scope.displayMessage}
+      <code
+        title={scope.value}
+        className="inline-block max-w-full truncate rounded-lg bg-foreground/5 px-2 py-1 align-middle text-xs"
       >
-        {scope.displayMessage}
-      </span>
+        {scope.value}
+      </code>
     ),
   },
 ];
@@ -53,9 +32,10 @@ export default async function ResourceServerPage({
   params,
 }: PageProps<"/manage-oauth/resource-servers/[id]">) {
   const { id } = await params;
-  const server = getResourceServer(id);
+  const server = await getResourceServer(id);
   if (!server) notFound();
-  const basePath = `/manage-oauth/resource-servers/${server.id}`;
+  const scopes = await listScopes(server.id);
+  const basePath = `/manage-oauth/resource-servers/${encodeURIComponent(server.id)}`;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-10">
@@ -91,23 +71,23 @@ export default async function ResourceServerPage({
             Create Scope
           </Button>
         </div>
-        {server.scopes.length > 0 ? (
+        {scopes.length > 0 ? (
           <DataTable
             caption={`${server.name} scopes`}
-            rows={server.scopes}
+            rows={scopes}
             columns={scopeColumns}
             rowKey={(scope) => scope.id}
             actions={(scope) => (
               <RowActions
                 name={scope.value}
-                editHref={`${basePath}/scopes/${scope.id}/edit`}
                 extraActions={[
                   {
                     label: "View consumers of",
                     icon: faUsers,
-                    href: `${basePath}/scopes/${scope.id}/consumers`,
+                    href: `${basePath}/scopes/${encodeURIComponent(scope.id)}/consumers`,
                   },
                 ]}
+                onDelete={deleteScopeAction.bind(null, server.id, scope.id)}
               />
             )}
           />
