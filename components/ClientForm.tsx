@@ -1,6 +1,14 @@
 "use client";
 
-import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import {
+  type FormEvent,
+  startTransition,
+  useActionState,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import Button from "@/components/Button";
 import Callout from "@/components/Callout";
 import Checkbox from "@/components/Checkbox";
@@ -8,36 +16,33 @@ import CopyField from "@/components/CopyField";
 import Fieldset from "@/components/Fieldset";
 import ScopePicker from "@/components/ScopePicker";
 import SegmentedControl from "@/components/SegmentedControl";
-import TextArea from "@/components/TextArea";
 import TextInput from "@/components/TextInput";
 import UrlListInput from "@/components/UrlListInput";
-import { type Client, grantTypes } from "@/lib/clients";
-import { scopeGroups } from "@/lib/scopes";
-
-function generateSecret() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
+import type { Client } from "@/lib/clients";
+import { grantTypes } from "@/lib/grant-types";
+import { saveClient } from "@/lib/manage-oauth-actions";
+import type { ScopeGroup } from "@/lib/scopes";
 
 interface ClientFormProps {
   client?: Client;
+  scopeGroups: ScopeGroup[];
 }
 
-export default function ClientForm({ client }: ClientFormProps) {
+export default function ClientForm({ client, scopeGroups }: ClientFormProps) {
   const headingId = useId();
   const editing = client !== undefined;
   const firstGrantRef = useRef<HTMLInputElement>(null);
   const [grants, setGrants] = useState<string[]>(client?.grants ?? []);
   const [grantError, setGrantError] = useState<string>();
-  const [secret, setSecret] = useState<string>();
+  const [state, save, pending] = useActionState(
+    saveClient.bind(null, client?.clientId),
+    {},
+  );
   const secretHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    if (secret) secretHeadingRef.current?.focus();
-  }, [secret]);
+    if (state.created) secretHeadingRef.current?.focus();
+  }, [state.created]);
 
   const toggleGrant = (value: string) => {
     setGrantError(undefined);
@@ -48,6 +53,8 @@ export default function ClientForm({ client }: ClientFormProps) {
     );
   };
 
+  // Submitting through a transition rather than the form's `action` keeps
+  // the user's input when the server rejects it
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (grants.length === 0) {
@@ -55,10 +62,11 @@ export default function ClientForm({ client }: ClientFormProps) {
       firstGrantRef.current?.focus();
       return;
     }
-    if (!editing) setSecret(generateSecret());
+    const formData = new FormData(e.currentTarget);
+    startTransition(() => save(formData));
   };
 
-  if (secret) {
+  if (state.created) {
     return (
       <div className="flex flex-col gap-8">
         <h1
@@ -72,8 +80,12 @@ export default function ClientForm({ client }: ClientFormProps) {
           Here is your client secret. Copy it now, this will be your only chance
           to do so.
         </Callout>
-        <CopyField label="Client Secret" value={secret} />
-        <Button href="/manage-oauth/clients" className="text-lg sm:self-start">
+        <CopyField label="Client ID" value={state.created.clientId} />
+        <CopyField label="Client Secret" value={state.created.secret} />
+        <Button
+          href={`/manage-oauth/clients/${encodeURIComponent(state.created.clientId)}`}
+          className="text-lg sm:self-start"
+        >
           Continue
         </Button>
       </div>
@@ -102,18 +114,18 @@ export default function ClientForm({ client }: ClientFormProps) {
           label="Client ID"
           name="clientId"
           defaultValue={client?.clientId}
-          hint="A unique identifier your app sends when requesting tokens."
+          readOnly={editing}
+          hint={
+            editing
+              ? "Client IDs can't be changed."
+              : "A unique identifier your app sends when requesting tokens. Leave blank to generate one."
+          }
+          pattern="[A-Za-z0-9._~\-]{1,128}"
           autoComplete="off"
           spellCheck={false}
-          className="w-full bg-transparent font-mono text-lg outline-none"
-          required
-        />
-        <TextArea
-          label="Client Description"
-          name="description"
-          defaultValue={client?.description}
-          rows={3}
-          required
+          className={`w-full bg-transparent font-mono text-lg outline-none ${
+            editing ? "cursor-default text-muted" : ""
+          }`}
         />
       </Fieldset>
 
@@ -170,8 +182,14 @@ export default function ClientForm({ client }: ClientFormProps) {
         />
       </Fieldset>
 
+      {state.error && (
+        <Callout variant="warning" role="alert">
+          {state.error}
+        </Callout>
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row-reverse sm:justify-start">
-        <Button type="submit" className="text-lg">
+        <Button type="submit" className="text-lg" disabled={pending}>
           {editing ? "Save Changes" : "Create Client"}
         </Button>
         <Button href="/manage-oauth/clients" variant="text">

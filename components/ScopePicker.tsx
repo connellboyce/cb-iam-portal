@@ -22,7 +22,7 @@ const matches = (group: ScopeGroup, needle: string) =>
     (scope) =>
       !needle ||
       scope.value.toLowerCase().includes(needle) ||
-      scope.description.toLowerCase().includes(needle) ||
+      scope.description?.toLowerCase().includes(needle) ||
       group.application.toLowerCase().includes(needle),
   );
 

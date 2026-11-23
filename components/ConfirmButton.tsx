@@ -2,7 +2,7 @@
 
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { type ComponentProps, useId, useRef } from "react";
+import { type ComponentProps, useActionState, useId, useRef } from "react";
 import Button from "@/components/Button";
 
 interface ConfirmButtonProps {
@@ -10,6 +10,8 @@ interface ConfirmButtonProps {
   icon: IconDefinition;
   question: string;
   variant?: ComponentProps<typeof Button>["variant"];
+  /** Runs when the user confirms; an error keeps the dialog open to show it */
+  action?: () => Promise<{ error?: string }>;
 }
 
 export default function ConfirmButton({
@@ -17,12 +19,19 @@ export default function ConfirmButton({
   icon,
   question,
   variant = "text",
+  action,
 }: ConfirmButtonProps) {
   const headingId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const noRef = useRef<HTMLButtonElement>(null);
 
   const close = () => dialogRef.current?.close();
+
+  const [state, confirm, pending] = useActionState(async () => {
+    const result = (await action?.()) ?? {};
+    if (!result.error) close();
+    return result;
+  }, {});
 
   return (
     <>
@@ -51,14 +60,27 @@ export default function ConfirmButton({
           <h2 id={headingId} className="text-xl font-bold">
             {question}
           </h2>
-          <div className="flex flex-col gap-3 sm:flex-row-reverse">
+          {state.error && (
+            <p role="alert" className="text-sm text-brand">
+              {state.error}
+            </p>
+          )}
+          <form
+            action={confirm}
+            className="flex flex-col gap-3 sm:flex-row-reverse"
+          >
             <Button ref={noRef} className="sm:flex-1" onClick={close}>
               No
             </Button>
-            <Button variant="text" className="sm:flex-1" onClick={close}>
+            <Button
+              type="submit"
+              variant="text"
+              className="sm:flex-1"
+              disabled={pending}
+            >
               Yes
             </Button>
-          </div>
+          </form>
         </div>
       </dialog>
     </>

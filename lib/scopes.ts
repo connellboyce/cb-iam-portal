@@ -1,8 +1,8 @@
-import { resourceServers } from "@/lib/resource-servers";
+import { authhubRequest } from "@/lib/authhub";
 
 export interface Scope {
   value: string;
-  description: string;
+  description?: string;
 }
 
 export interface ScopeGroup {
@@ -10,29 +10,23 @@ export interface ScopeGroup {
   scopes: Scope[];
 }
 
-const openIdScopes: ScopeGroup = {
-  application: "OpenID",
-  scopes: [
-    { value: "openid", description: "Sign users in and receive an ID token." },
-    { value: "profile", description: "Read the user's name and picture." },
-    { value: "email", description: "Read the user's email address." },
-    {
-      value: "offline_access",
-      description: "Receive refresh tokens to keep users signed in.",
-    },
-  ],
-};
+interface ScopeCatalog {
+  scopes: { name: string; application: { id: string; name: string } }[];
+}
 
-export const scopeGroups: ScopeGroup[] = [
-  openIdScopes,
-  ...resourceServers
-    .filter((server) => server.scopes.length > 0)
-    .map((server) => ({
-      application: server.name,
-      scopes: server.scopes.map((scope) => ({
-        value: scope.value,
-        description: scope.displayMessage,
-      })),
+/** Every scope a client can be assigned, grouped by owning application. */
+export async function getScopeGroups(): Promise<ScopeGroup[]> {
+  const { scopes } = await authhubRequest<ScopeCatalog>("scopes");
+  const groups = new Map<string, Scope[]>();
+  for (const scope of scopes) {
+    const group = groups.get(scope.application.name) ?? [];
+    group.push({ value: scope.name });
+    groups.set(scope.application.name, group);
+  }
+  return [...groups]
+    .map(([application, scopes]) => ({
+      application,
+      scopes: scopes.sort((a, b) => a.value.localeCompare(b.value)),
     }))
-    .sort((a, b) => a.application.localeCompare(b.application)),
-];
+    .sort((a, b) => a.application.localeCompare(b.application));
+}
